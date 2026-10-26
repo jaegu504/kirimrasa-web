@@ -11,7 +11,8 @@ const {
     DisconnectReason,
     fetchLatestBaileysVersion,
     makeCacheableSignalKeyStore,
-    delay
+    delay,
+    BufferJSON
 } = require('@whiskeysockets/baileys');
 
 const app = express();
@@ -80,6 +81,60 @@ function saveMessageToStore(messageId, messageContent) {
     messageStore.set(messageId, messageContent);
 }
 
+// Messages this gateway sent are also kept on disk per node. When one of the sender's own
+// devices (the main phone) can't decrypt its copy, it asks the gateway to resend it; without
+// the original the phone shows "Waiting for this message" forever. The RAM store alone is lost
+// on restarts and the request often arrives after the idle close, so keep 7 days on disk.
+const SENT_STORE_MAX = 500;
+const SENT_STORE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const sentStores = new Map(); // nodeId -> { [messageId]: { m: message, t: sentAt } }
+
+function sentStorePath(nodeId) {
+    return path.join(SESSIONS_DIR, `node_${nodeId}`, 'sent-messages.json');
+}
+
+function sentStore(nodeId) {
+    let store = sentStores.get(nodeId);
+    if (!store) {
+        try {
+            store = JSON.parse(fs.readFileSync(sentStorePath(nodeId), 'utf-8'), BufferJSON.reviver);
+        } catch (_) {
+            store = {};
+        }
+        sentStores.set(nodeId, store);
+    }
+    return store;
+}
+
+function rememberSent(nodeId, messageId, message) {
+    saveMessageToStore(messageId, message);
+    if (!nodeId) return;
+    const store = sentStore(nodeId);
+    store[messageId] = { m: message, t: Date.now() };
+    const cutoff = Date.now() - SENT_STORE_TTL_MS;
+    let ids = Object.keys(store).filter((id) => {
+        if (store[id].t >= cutoff) return true;
+        delete store[id];
+        return false;
+    });
+    if (ids.length > SENT_STORE_MAX) {
+        ids.sort((a, b) => store[a].t - store[b].t)
+            .slice(0, ids.length - SENT_STORE_MAX)
+            .forEach((id) => delete store[id]);
+    }
+    try {
+        const file = sentStorePath(nodeId);
+        fs.writeFileSync(file + '.tmp', JSON.stringify(store, BufferJSON.replacer));
+        fs.renameSync(file + '.tmp', file);
+    } catch (err) {
+        logger.warn({ nodeId, err: err.message }, 'Could not save sent-message store');
+    }
+}
+
+function lookupSent(nodeId, messageId) {
+    return messageStore.get(messageId) || sentStore(nodeId)[messageId]?.m || undefined;
+}
+
 // Helper: Normalize Indonesian & international phone numbers
 function normalizePhone(phone) {
     let clean = phone.replace(/[^0-9]/g, '');
@@ -132,6 +187,9 @@ async function markUnavailable(sock) {
 // work: it closes after IDLE_MS without sends and reopens on the next send ("STANDBY").
 const IDLE_MS = parseInt(process.env.IDLE_MS || '120000', 10);
 const WAKE_TIMEOUT_MS = 25000;
+// After a send, the main phone may ask for a resend while the socket is already idle-closed.
+// One short reconnect later lets those requests reach the gateway and get answered.
+const CATCHUP_MS = parseInt(process.env.CATCHUP_MS || '600000', 10);
 
 function hasRegisteredCreds(nodeId) {
     try {
@@ -151,6 +209,14 @@ function touchActivity(nodeId) {
             logger.info({ nodeId }, 'Idle: closing socket so the phone keeps its notifications');
             node.idleClosing = true;
             try { node.sock.end(undefined); } catch (_) {}
+            if (node.pendingCatchup) {
+                node.pendingCatchup = false;
+                clearTimeout(node.catchupTimer);
+                node.catchupTimer = setTimeout(() => {
+                    logger.info({ nodeId }, 'Catch-up reconnect for resend requests');
+                    ensureConnected(nodeId).catch(() => {});
+                }, CATCHUP_MS);
+            }
         }
     }, IDLE_MS);
 }
@@ -208,7 +274,7 @@ async function getOrCreateSocket(nodeId, phoneNumber = null) {
         syncFullHistory: false,
         getMessage: async (key) => {
             if (key?.id) {
-                return messageStore.get(key.id) || undefined;
+                return lookupSent(nodeId, key.id);
             }
             return undefined;
         }
@@ -216,6 +282,7 @@ async function getOrCreateSocket(nodeId, phoneNumber = null) {
 
     if (!node) {
         node = {
+            id: nodeId,
             sock,
             state,
             saveCreds,
@@ -225,6 +292,7 @@ async function getOrCreateSocket(nodeId, phoneNumber = null) {
         };
         nodeMap.set(nodeId, node);
     } else {
+        node.id = nodeId;
         node.sock = sock;
         node.state = state;
         node.saveCreds = saveCreds;
@@ -492,7 +560,8 @@ async function sendOnNode(node, cleanPhone, message, media) {
     }
 
     if (sentMessage?.key?.id && sentMessage?.message) {
-        saveMessageToStore(sentMessage.key.id, sentMessage.message);
+        rememberSent(node.id, sentMessage.key.id, sentMessage.message);
+        node.pendingCatchup = true;
     }
 
     // Return to background presence so phone notification vibrations aren't muted
