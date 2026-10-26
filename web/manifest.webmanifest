@@ -1,0 +1,14 @@
+{
+  "name": "Kirimrasa",
+  "short_name": "Kirimrasa",
+  "description": "Kirim pesan WhatsApp yang terasa pribadi ke kontakmu sendiri.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F2F2F7",
+  "theme_color": "#EEF4FF",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

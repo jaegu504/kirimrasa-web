@@ -1,0 +1,22 @@
+# One-click "Deploy to Render" for friends who run their own Kirimrasa Web server.
+# https://render.com/deploy?repo=https://github.com/jaegu504/kirimrasa-web
+services:
+  - type: web
+    name: kirimrasa
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm install --omit=dev
+    startCommand: npm start
+    healthCheckPath: /health
+    # Updates are manual so a push never restarts a friend's server in the middle of a send
+    autoDeploy: false
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: APP_PASSWORD
+        sync: false
+      - key: API_KEY
+        generateValue: true
+      - key: DEFAULT_COUNTRY
+        value: "62"
