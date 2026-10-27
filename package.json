@@ -9,13 +9,13 @@
     "test": "node --test"
   },
   "dependencies": {
-    "@whiskeysockets/baileys": "^6.7.12",
+    "baileys": "7.0.0-rc14",
     "cors": "^2.8.5",
     "express": "^4.19.2",
     "pino": "^9.1.0",
     "ws": "^8.17.0"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.12.0"
   }
 }

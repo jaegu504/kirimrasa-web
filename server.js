@@ -13,7 +13,7 @@ const {
     makeCacheableSignalKeyStore,
     delay,
     BufferJSON
-} = require('@whiskeysockets/baileys');
+} = require('baileys');
 
 const app = express();
 const server = http.createServer(app);
@@ -191,6 +191,14 @@ const WAKE_TIMEOUT_MS = 25000;
 // One short reconnect later lets those requests reach the gateway and get answered.
 const CATCHUP_MS = parseInt(process.env.CATCHUP_MS || '600000', 10);
 
+// Noise keys of creds WhatsApp logged out (kept until restart)
+const loggedOutCreds = new Set();
+
+function credsKey(creds) {
+    const pub = creds?.noiseKey?.public;
+    return pub ? Buffer.from(pub).toString('base64') : null;
+}
+
 function hasRegisteredCreds(nodeId) {
     try {
         const creds = JSON.parse(fs.readFileSync(path.join(SESSIONS_DIR, `node_${nodeId}`, 'creds.json'), 'utf-8'));
@@ -337,6 +345,8 @@ async function getOrCreateSocket(nodeId, phoneNumber = null) {
                 }, 5000);
             } else {
                 logger.warn({ nodeId }, 'Logged out from device, deleting session credentials');
+                const deadKey = credsKey(node.state?.creds);
+                if (deadKey) loggedOutCreds.add(deadKey);
                 try {
                     fs.rmSync(sessionPath, { recursive: true, force: true });
                 } catch (_) {}
@@ -487,6 +497,14 @@ app.post('/api/nodes/:nodeId/session', authMiddleware, async (req, res) => {
     if (!files || typeof files !== 'object' || Object.keys(files).length === 0) {
         return res.status(400).json({ error: 'files map is required and cannot be empty' });
     }
+    // The app keeps a backup of the creds; once WhatsApp logged them out, restoring them only
+    // kills a pairing in progress and gets logged out again
+    try {
+        const creds = JSON.parse(files['creds.json'] || 'null', BufferJSON.reviver);
+        if (loggedOutCreds.has(credsKey(creds))) {
+            return res.status(410).json({ error: 'LOGGED_OUT', message: 'Session was logged out on the phone; link again' });
+        }
+    } catch (_) {}
     const sessionPath = path.join(SESSIONS_DIR, `node_${nodeId}`);
     if (!fs.existsSync(sessionPath)) {
         fs.mkdirSync(sessionPath, { recursive: true });
