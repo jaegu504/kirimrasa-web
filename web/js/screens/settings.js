@@ -121,7 +121,7 @@ function buildAccount(id, pulse = false) {
       body = h('div', { class: 'account-body stack-10 fade-in' },
         a.phone ? h('p', { class: 'muted' }, '+' + a.phone) : null,
         h('div', { class: 'chips' },
-          pill(S2.check ? s[S2.check] : s.testReady, S2.check === 'notReady' ? 'red' : S2.check === 'ready' ? 'green' : 'blue', () => checkReady(id), { iconName: 'check' }),
+          readyPill(id),
           pill(s.disconnect, 'red', () => disconnect(id, name), { iconName: 'unlink' })));
     } else {
       const input = h('input', { class: 'field', type: 'tel', inputmode: 'tel', autocomplete: 'tel', value: S2.phone, placeholder: t().contacts.phoneHint(S.settings.defaultCountry), 'aria-label': s.phoneLabel,
@@ -132,6 +132,7 @@ function buildAccount(id, pulse = false) {
       body = h('div', { class: 'account-body stack-10 fade-in' },
         h('label', { class: 'caption', for: 'phone-' + id }, s.phoneLabel), Object.assign(input, { id: 'phone-' + id }),
         reqBtn,
+        h('div', { class: 'chips' }, readyPill(id)),
         S2.error ? h('p', { class: 'alert tone-red', role: 'alert' }, S2.error) : null,
         S2.code ? codeBox(S2.code) : null);
     }
@@ -190,6 +191,12 @@ function watchPairing() {
   }, 3000);
 }
 
+function readyPill(id) {
+  const s = t().settings;
+  const check = st[id].check;
+  return pill(check ? s[check] : s.testReady, check === 'notReady' ? 'red' : check === 'ready' ? 'green' : 'blue', () => checkReady(id), { iconName: 'check' });
+}
+
 /** Wakes the WhatsApp socket and reports whether WhatsApp accepts it, like the app's readiness test. */
 async function checkReady(id) {
   const S2 = st[id];
@@ -199,6 +206,7 @@ async function checkReady(id) {
   try {
     const r = await api(`/accounts/${id}/check`, { method: 'POST' });
     S2.check = r.ready ? 'ready' : 'notReady';
+    if (r.ready) await refreshAccounts();
   } catch (e) {
     S2.check = 'notReady';
     toast(errText(e), 'red');

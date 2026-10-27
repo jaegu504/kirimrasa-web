@@ -172,6 +172,8 @@ function mount(app, gw) {
     }));
 
     api.post('/accounts/:id/check', checkAccount, wrap(async (req, res) => {
+        // No saved login: nothing to wake, and opening a socket here would end a pairing in progress
+        if (!linked(req.params.id)) return res.json({ ready: false });
         const node = await gw.ensureConnected(req.params.id).catch(() => null);
         res.json({ ready: !!node });
     }));
