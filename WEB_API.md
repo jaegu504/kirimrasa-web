@@ -44,7 +44,7 @@ Stored in `DATA_DIR/contacts.json`. Contact shape:
 `phone` is normalised digits with country code (e.g. `628123456789`). Duplicates are merged by phone; an import never overwrites a nickname or tags the user set.
 
 - `GET /app/api/contacts` → `[Contact]` sorted by name.
-- `POST /app/api/contacts/import` (body `text/csv`, ≤ 2 MB) → `{ added, updated, skipped }`.
+- `POST /app/api/contacts/import` (body `text/csv` or a vCard `.vcf` file, detected from `BEGIN:VCARD`, ≤ 2 MB) → `{ added, updated, skipped }`.
   Accepts: our own export (`name,phone,nickname,company,custom1,tags` with tags `;`-separated), and Google Contacts CSV (`First Name`/`Last Name` or `Name`, plus `Phone 1 - Value`, `Phone 2 - Value`…; ` ::: ` separates several numbers in one cell, take the first mobile-looking one). Header matching is case-insensitive. New contacts get a nickname guessed from the first word of the name (skip if it looks like a number or title like dr./pak/bu/bapak/ibu/mas/mbak → use the next word).
 - `POST /app/api/contacts` `{ name, phone, nickname? }` → `Contact` (manual add).
 - `PATCH /app/api/contacts/:id` `{ nickname?, company?, custom1?, tags?, selected? }` → `Contact`.

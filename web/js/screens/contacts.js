@@ -37,7 +37,7 @@ export function render(container) {
   root = container;
   const c = t().contacts;
   el = {};
-  el.file = h('input', { type: 'file', accept: '.csv,text/csv', hidden: true, onchange: (e) => { importCsv(e.target.files[0]); e.target.value = ''; } });
+  el.file = h('input', { type: 'file', accept: '.csv,.vcf,text/csv,text/vcard,text/x-vcard', hidden: true, onchange: (e) => { importCsv(e.target.files[0]); e.target.value = ''; } });
   el.importBtn = pill(c.importCsv, 'blue', () => el.file.click(), { iconName: 'upload' });
   el.importMsg = h('p', { class: 'caption', hidden: !importMsg }, importMsg);
   el.search = h('input', { class: 'field-bare', type: 'search', placeholder: c.searchPlaceholder, 'aria-label': c.searchPlaceholder, value: query });

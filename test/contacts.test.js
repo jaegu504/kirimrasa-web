@@ -66,3 +66,25 @@ test('own export format round-trips', () => {
     const { id: _b, ...rb } = b[0];
     assert.deepEqual(rb, ra);
 });
+
+test('importCsv reads vCard files (3.0 and 2.1 quoted-printable)', () => {
+    const vcf = [
+        'BEGIN:VCARD', 'VERSION:3.0', 'FN:Budi Santoso', 'NICKNAME:Bud', 'ORG:Acme;Sales',
+        'CATEGORIES:keluarga,vip', 'item1.TEL;TYPE=HOME:021-555 1234', 'TEL;TYPE=CELL:+62 812-3456-7890', 'END:VCARD',
+        'BEGIN:VCARD', 'VERSION:2.1', 'FN;CHARSET=UTF-8;ENCODING=QUOTED-PRINTABLE:=C3=87a=C4=9Flar Y=C4=B1lmaz=',
+        '=20Bey', 'TEL;CELL:0532 111 22 33', 'END:VCARD',
+        'BEGIN:VCARD', 'N:Rahman;Siti;;;', 'TEL:+90 555', ' 123 4567', 'END:VCARD',
+        'BEGIN:VCARD', 'FN:No Number', 'END:VCARD'
+    ].join('\r\n');
+    const contacts = [];
+    assert.deepEqual(importCsv(contacts, vcf, '90'), { added: 3, updated: 0, skipped: 1 });
+    assert.equal(contacts[0].name, 'Budi Santoso');
+    assert.equal(contacts[0].phone, '6281234567890');
+    assert.equal(contacts[0].nickname, 'Bud');
+    assert.equal(contacts[0].company, 'Acme');
+    assert.deepEqual(contacts[0].tags, ['keluarga', 'vip']);
+    assert.equal(contacts[1].name, 'Çağlar Yılmaz Bey');
+    assert.equal(contacts[1].phone, '905321112233');
+    assert.equal(contacts[2].name, 'Siti Rahman');
+    assert.equal(contacts[2].phone, '905551234567');
+});

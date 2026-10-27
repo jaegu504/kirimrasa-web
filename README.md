@@ -12,7 +12,7 @@ Kirim satu pesan WhatsApp yang terasa personal ke banyak kontakmu sendiri — da
 - Messages of 1–5 chat bubbles with `{Nickname}`, `{Company}`, `{Custom_1}` and `{a|b}` word variation
 - AI rewrite in six styles (friendly, heartfelt, casual, polite, shorter, more variation) that keeps your language and greetings
 - Photos, videos and documents placed on a chosen bubble (max 16 MB each)
-- Contacts from CSV (including a Google Contacts export), nicknames and labels
+- Contacts from CSV (including a Google Contacts export) or vCard (.vcf), nicknames and labels
 - A sending queue that runs on the server: random delays, typing simulation, automatic breaks, pause/stop, retry failed
 - Indonesian and Turkish, light and dark, works on phone and laptop
 

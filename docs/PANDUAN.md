@@ -45,9 +45,9 @@ Server gratis Render **tidur** setelah 15 menit tidak dipakai. Saat tidur, pengi
 
 ## 5. Mulai kirim
 
-1. **Kontak:** impor file CSV. Cara mengambil kontak dari Google:
+1. **Kontak:** impor file CSV atau VCF. File VCF bisa diekspor dari aplikasi **Kontak** di HP (menu **Ekspor**). Cara mengambil kontak dari Google:
    - Buka **contacts.google.com** → **Ekspor** → pilih **Google CSV** → unduh.
-   - Di Kirimrasa tab **Kontak** → **Impor CSV** → pilih file tadi.
+   - Di Kirimrasa tab **Kontak** → **Impor CSV/VCF** → pilih file tadi.
 2. Isi **nama panggilan** kontak (dipakai untuk `{Nickname}`).
 3. **Kirim:** tulis pesan (sampai 5 balon), boleh pakai **Rapikan (AI)**, lampirkan foto/file, lalu tekan **Kirim**.
 4. **Status:** lihat progres. Halaman **boleh ditutup** — pengiriman tetap jalan di server.
@@ -123,7 +123,7 @@ Süre: yaklaşık **15 dakika**, bir kez yapılır. Telefondan veya bilgisayarda
 
 ## 5. Göndermeye başla
 
-1. **Kişiler:** CSV içe aktar. Google'dan almak için **contacts.google.com** → **Dışa aktar** → **Google CSV** → indir → Kirimrasa **Kişiler** → **CSV içe aktar**.
+1. **Kişiler:** CSV veya VCF içe aktar (VCF'yi telefonun **Kişiler** uygulamasından **Dışa aktar** ile alabilirsin). Google'dan almak için **contacts.google.com** → **Dışa aktar** → **Google CSV** → indir → Kirimrasa **Kişiler** → **CSV/VCF içe aktar**.
 2. Kişilere **hitap adı** ver (`{Nickname}` için kullanılır).
 3. **Gönder:** mesajını yaz (5 balona kadar), istersen **Düzenle (AI)**, dosya ekle, **Gönder**'e bas.
 4. **Durum:** ilerlemeyi izle. Sayfayı **kapatabilirsin**, gönderim sunucuda devam eder.
