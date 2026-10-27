@@ -35,6 +35,7 @@ Two fixed node ids on this server: `personal` and `business`.
 - `GET /app/api/accounts` → `[{ id: "personal"|"business", status: "CONNECTED"|"STANDBY"|"CONNECTING"|"PAIRING"|"DISCONNECTED", phone: "62812..."|null }]`
   STANDBY means linked but the socket is idle-closed (treat as linked in the UI).
 - `POST /app/api/accounts/:id/pair` `{ phone }` → `{ code: "ABCD1234" }` (8-char pairing code). Already linked → `409 { code: "ALREADY_CONNECTED" }`.
+- `POST /app/api/accounts/:id/check` → `{ ready: bool }` (wakes an idle socket and waits until WhatsApp accepts it; the readiness test).
 - `POST /app/api/accounts/:id/disconnect` → `{ ok: true }` (logs out and deletes the session).
 
 ## Contacts

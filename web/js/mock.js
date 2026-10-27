@@ -141,6 +141,7 @@ async function handle(method, fullPath, body, type, onProgress) {
     case 'POST /accounts': {
       const a = accounts.find((x) => x.id === seg[1]);
       if (seg[2] === 'disconnect') { Object.assign(a, { status: 'DISCONNECTED', phone: null }); return ok({ ok: true }); }
+      if (seg[2] === 'check') { await wait(1200); return ok({ ready: a.status === 'CONNECTED' }); }
       if (a.status === 'CONNECTED') return fail(409, 'ALREADY_CONNECTED');
       a.status = 'PAIRING';
       setTimeout(() => Object.assign(a, { status: 'CONNECTED', phone: body.phone }), 7000);

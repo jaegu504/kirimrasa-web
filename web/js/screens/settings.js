@@ -120,7 +120,9 @@ function buildAccount(id, pulse = false) {
     if (linked) {
       body = h('div', { class: 'account-body stack-10 fade-in' },
         a.phone ? h('p', { class: 'muted' }, '+' + a.phone) : null,
-        h('div', { class: 'chips' }, pill(s.disconnect, 'red', () => disconnect(id, name), { iconName: 'unlink' })));
+        h('div', { class: 'chips' },
+          pill(S2.check ? s[S2.check] : s.testReady, S2.check === 'notReady' ? 'red' : S2.check === 'ready' ? 'green' : 'blue', () => checkReady(id), { iconName: 'check' }),
+          pill(s.disconnect, 'red', () => disconnect(id, name), { iconName: 'unlink' })));
     } else {
       const input = h('input', { class: 'field', type: 'tel', inputmode: 'tel', autocomplete: 'tel', value: S2.phone, placeholder: t().contacts.phoneHint(S.settings.defaultCountry), 'aria-label': s.phoneLabel,
         oninput: (e) => { S2.phone = e.target.value; reqBtn.disabled = !S2.phone.trim() || S2.requesting; },
@@ -186,6 +188,23 @@ function watchPairing() {
     if (!waiting || Date.now() > until) { clearInterval(pairTimer); return; }
     await refreshAccounts();
   }, 3000);
+}
+
+/** Wakes the WhatsApp socket and reports whether WhatsApp accepts it, like the app's readiness test. */
+async function checkReady(id) {
+  const S2 = st[id];
+  if (S2.check === 'checking') return;
+  S2.check = 'checking';
+  buildAccount(id);
+  try {
+    const r = await api(`/accounts/${id}/check`, { method: 'POST' });
+    S2.check = r.ready ? 'ready' : 'notReady';
+  } catch (e) {
+    S2.check = 'notReady';
+    toast(errText(e), 'red');
+  }
+  buildAccount(id);
+  setTimeout(() => { if (S2.check !== 'checking') { S2.check = null; buildAccount(id); } }, 4000);
 }
 
 function disconnect(id, name) {

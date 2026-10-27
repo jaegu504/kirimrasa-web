@@ -171,6 +171,11 @@ function mount(app, gw) {
         res.json({ code: result.code });
     }));
 
+    api.post('/accounts/:id/check', checkAccount, wrap(async (req, res) => {
+        const node = await gw.ensureConnected(req.params.id).catch(() => null);
+        res.json({ ready: !!node });
+    }));
+
     api.post('/accounts/:id/disconnect', checkAccount, wrap(async (req, res) => {
         await gw.disconnectNode(req.params.id);
         res.json({ ok: true });
