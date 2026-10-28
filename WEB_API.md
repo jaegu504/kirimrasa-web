@@ -7,7 +7,7 @@ It is **off unless `APP_PASSWORD` is set**. The owner's existing Render gateway 
 When on:
 - `GET /` serves `web/index.html` (static files from `wa-gateway/web/`). `/health` stays the uptime ping.
 - Everything under `/app/api/*` needs the session cookie, except `POST /app/api/login`.
-- The Android-app routes (`/api/nodes/...`, WebSocket) are unchanged and still use `API_KEY`.
+- The Android-app routes (`/api/nodes/...`, WebSocket) take `Authorization: Bearer <API_KEY>`, or the `APP_PASSWORD` so a friend can set up the app with the password they chose. 10 wrong keys per IP per minute lock that IP out for the rest of the minute.
 
 All bodies are JSON unless stated. Errors: `{ "error": "<message>", "code": "<CODE>" }` with a 4xx/5xx status.
 Error messages are short English codes; the UI shows its own ID/TR text per `code`.

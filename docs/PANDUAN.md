@@ -59,6 +59,17 @@ Server gratis Render **tidur** setelah 15 menit tidak dipakai. Saat tidur, pengi
 - **Jangan percepat jeda kirim** di bawah bawaan kalau tidak perlu. Jeda acak dan istirahat otomatis melindungi nomormu dari blokir WhatsApp.
 - **Kirim hanya ke orang yang kamu kenal.** WhatsApp memblokir nomor yang banyak dilaporkan sebagai spam.
 
+## Pakai dari aplikasi Kirimrasa (Android)
+
+Server yang sama bisa dipakai dari aplikasi Kirimrasa di HP:
+
+1. Di aplikasi: **Pengaturan** → **Pengaturan lanjutan**.
+2. **Alamat server:** alamat Kirimrasa-mu, contoh `https://kirimrasa-xxxx.onrender.com` (tanpa `/health`).
+3. **Kunci akses:** **password** yang kamu buat di langkah 2 (APP_PASSWORD).
+4. Simpan, lalu tautkan WhatsApp dari aplikasi (Pengaturan → WhatsApp Pribadi → Tautkan).
+
+> WhatsApp yang ditautkan di aplikasi dan di web adalah tautan terpisah. Cukup pakai salah satu.
+
 ## Update ke versi terbaru
 
 Server-mu **tidak** update otomatis (supaya tidak restart di tengah pengiriman). Saat ada versi baru:
@@ -134,6 +145,17 @@ Süre: yaklaşık **15 dakika**, bir kez yapılır. Telefondan veya bilgisayarda
 - Ek başına **en fazla 16 MB**.
 - Gönderim aralıklarını gereksiz yere kısaltma; rastgele bekleme ve otomatik mola numaranı korur.
 - **Yalnızca tanıdığın kişilere** gönder.
+
+## Kirimrasa uygulamasından (Android) kullanma
+
+Aynı sunucuyu telefondaki Kirimrasa uygulamasından da kullanabilirsin:
+
+1. Uygulamada: **Ayarlar** → **Gelişmiş ayarlar**.
+2. **Sunucu adresi:** Kirimrasa adresin, örn. `https://kirimrasa-xxxx.onrender.com` (`/health` olmadan).
+3. **Erişim anahtarı:** 2. adımda belirlediğin **şifre** (APP_PASSWORD).
+4. Kaydet, sonra WhatsApp'ı uygulamadan bağla (Ayarlar → Kişisel WhatsApp → Bağla).
+
+> Uygulamada ve web'de bağlanan WhatsApp ayrı bağlantılardır. Birini kullanman yeterli.
 
 ## Güncelleme
 

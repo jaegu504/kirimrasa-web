@@ -4,6 +4,7 @@ const { WebSocketServer } = require('ws');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const pino = require('pino');
 const {
     default: makeWASocket,
@@ -146,15 +147,36 @@ function normalizePhone(phone) {
     return clean;
 }
 
-// Authentication middleware
-function isAuthorized(headers) {
+// Authentication middleware. The Android app may also use the web password (APP_PASSWORD) as
+// its key, so a friend only has to copy the server address and the password they chose.
+const APP_PASSWORD = process.env.APP_PASSWORD || '';
+const keyFailures = new Map(); // ip -> { count, since }
+
+function sameSecret(given, expected) {
+    if (!expected) return false;
+    const a = crypto.createHash('sha256').update(given).digest();
+    const b = crypto.createHash('sha256').update(expected).digest();
+    return crypto.timingSafeEqual(a, b);
+}
+
+function isAuthorized(headers, ip = '') {
     if (!API_KEY) return true;
-    const authHeader = headers['authorization'];
-    return !!authHeader && authHeader.replace(/^Bearer\s+/i, '').trim() === API_KEY.trim();
+    const f = keyFailures.get(ip);
+    if (f && f.count >= 10 && Date.now() - f.since < 60000) return false;
+    const given = (headers['authorization'] || '').replace(/^Bearer\s+/i, '').trim();
+    const ok = !!given && (sameSecret(given, API_KEY.trim()) || sameSecret(given, APP_PASSWORD.trim()));
+    if (ok) {
+        keyFailures.delete(ip);
+    } else if (given) {
+        // Slow down guessing of the (user-chosen) password: 10 wrong keys per IP per minute
+        const fresh = !f || Date.now() - f.since >= 60000;
+        keyFailures.set(ip, fresh ? { count: 1, since: Date.now() } : { count: f.count + 1, since: f.since });
+    }
+    return ok;
 }
 
 function authMiddleware(req, res, next) {
-    if (isAuthorized(req.headers)) return next();
+    if (isAuthorized(req.headers, req.ip)) return next();
     return res.status(401).json({ error: 'Unauthorized: Invalid API Key' });
 }
 
@@ -750,7 +772,7 @@ server.on('upgrade', (request, socket, head) => {
     const pathname = request.url ? new URL(request.url, `http://${request.headers.host}`).pathname : '';
     const match = pathname.match(/^\/ws\/nodes\/([a-zA-Z0-9_\-]+)$/);
 
-    if (match && !isAuthorized(request.headers)) {
+    if (match && !isAuthorized(request.headers, request.socket.remoteAddress)) {
         socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
         socket.destroy();
     } else if (match) {
