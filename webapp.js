@@ -136,6 +136,34 @@ function mount(app, gw) {
 
     api.get('/me', (req, res) => res.json({ ok: true, version }));
 
+    // ---------- update check ----------
+    // Render tells the server which commit it runs; GitHub says how far that is behind main.
+    // Cached for an hour (GitHub allows 60 unauthenticated calls per hour per IP).
+    const UPDATE_REPO = process.env.UPDATE_REPO || 'jaegu504/kirimrasa-web';
+    let updateCache = { at: 0, data: null };
+    api.get('/update', wrap(async (req, res) => {
+        const commit = process.env.RENDER_GIT_COMMIT;
+        const service = process.env.RENDER_SERVICE_ID;
+        const dashboardUrl = service ? `https://dashboard.render.com/web/${service}` : 'https://dashboard.render.com';
+        if (!commit) return res.json({ available: false, behind: 0, dashboardUrl });
+        if (!updateCache.data || Date.now() - updateCache.at > 60 * 60 * 1000) {
+            try {
+                const r = await fetch(`https://api.github.com/repos/${UPDATE_REPO}/compare/${commit}...main`, {
+                    headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'kirimrasa-web' },
+                    signal: AbortSignal.timeout(8000)
+                });
+                if (!r.ok) throw new Error('GitHub ' + r.status);
+                const j = await r.json();
+                updateCache = { at: Date.now(), data: { behind: j.ahead_by || 0 } };
+            } catch (err) {
+                gw.logger.warn({ err: err.message }, 'Update check failed');
+                if (!updateCache.data) return res.json({ available: false, behind: 0, dashboardUrl });
+            }
+        }
+        const behind = updateCache.data.behind;
+        res.json({ available: behind > 0, behind, dashboardUrl });
+    }));
+
     // ---------- accounts ----------
     const linked = id => gw.nodeStatus(id).registered;
     const credsPhone = id => {

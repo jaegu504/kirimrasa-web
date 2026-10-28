@@ -3,7 +3,7 @@ import { api, errText, setUnauthorizedHandler } from './api.js';
 import { h, icon, segmented } from './dom.js';
 import { setLang, lang, t } from './i18n.js';
 import { S, on, campaignActive } from './store.js';
-import { refreshAccounts, refreshCampaign } from './actions.js';
+import { refreshAccounts, refreshCampaign, refreshUpdate } from './actions.js';
 import * as compose from './screens/compose.js';
 import * as contacts from './screens/contacts.js';
 import * as queue from './screens/queue.js';
@@ -74,7 +74,11 @@ async function boot() {
   applyTheme(S.settings.theme || 'system');
   renderShell();
   startPolling();
+  refreshUpdate();
+  clearInterval(updateTimer);
+  updateTimer = setInterval(refreshUpdate, 6 * 60 * 60 * 1000);
 }
+let updateTimer = null;
 
 function showOffline(err) {
   app.replaceChildren(h('div', { class: 'center-screen' },
@@ -127,13 +131,18 @@ function showLogin(errorCode) {
 
 // ---------- shell ----------
 let badgeEls = [];
+let updateDots = [];
+on('update', () => updateDots.forEach((d) => { d.hidden = !S.update?.available; }));
 function renderShell() {
   const nav = t().nav;
   const tabs = Object.keys(SCREENS);
   badgeEls = [];
+  updateDots = [];
   const navButton = (tab, cls) => {
-    const badge = tab === 'queue' ? h('span', { class: 'badge', hidden: true }) : null;
-    if (badge) badgeEls.push(badge);
+    const badge = tab === 'queue' ? h('span', { class: 'badge', hidden: true })
+      : tab === 'settings' ? h('span', { class: 'badge dot', hidden: !S.update?.available, 'aria-label': t().settings.updateTitle }) : null;
+    if (tab === 'queue') badgeEls.push(badge);
+    if (tab === 'settings') updateDots.push(badge);
     return h('button', {
       type: 'button', class: cls + ' press', dataset: { tab }, 'aria-current': S.tab === tab ? 'page' : null,
       onclick: () => go(tab),

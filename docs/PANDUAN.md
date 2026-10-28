@@ -72,7 +72,7 @@ Server yang sama bisa dipakai dari aplikasi Kirimrasa di HP:
 
 ## Update ke versi terbaru
 
-Server-mu **tidak** update otomatis (supaya tidak restart di tengah pengiriman). Saat ada versi baru:
+Server-mu **tidak** update otomatis (supaya tidak restart di tengah pengiriman). Saat ada versi baru, tab **Pengaturan** menampilkan kotak **Versi baru tersedia** dengan tombol **Buka Render** (dan titik merah di menu Pengaturan). Lalu:
 
 1. Buka **dashboard.render.com** → klik layanan `kirimrasa`.
 2. Klik **Manual Deploy** → **Deploy latest commit**.
@@ -159,7 +159,7 @@ Aynı sunucuyu telefondaki Kirimrasa uygulamasından da kullanabilirsin:
 
 ## Güncelleme
 
-Sunucu kendiliğinden güncellenmez. Yeni sürümde: **dashboard.render.com** → `kirimrasa` → **Manual Deploy** → **Deploy latest commit** → Live olunca WhatsApp'ı tekrar bağla.
+Sunucu kendiliğinden güncellenmez. Yeni sürüm çıkınca **Ayarlar** sekmesinde **Yeni sürüm var** kutusu ve **Render'ı aç** düğmesi görünür. Sonra: **dashboard.render.com** → `kirimrasa` → **Manual Deploy** → **Deploy latest commit** → Live olunca WhatsApp'ı tekrar bağla.
 
 ## Şifre değiştirme
 

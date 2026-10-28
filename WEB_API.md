@@ -27,6 +27,7 @@ Error messages are short English codes; the UI shows its own ID/TR text per `cod
 - `POST /app/api/login` `{ password }` → `200 { ok: true }` and sets cookie `kr_session` (HttpOnly, SameSite=Lax, Secure when behind https, 30 days, HMAC-signed). Wrong password → `401 { code: "BAD_PASSWORD" }`. More than 5 failed tries per IP per minute → `429 { code: "TOO_MANY_TRIES" }`. Compare in constant time.
 - `POST /app/api/logout` → clears cookie.
 - `GET /app/api/me` → `{ ok: true, version: "<package version>" }` or `401 { code: "LOGIN_REQUIRED" }`.
+- `GET /app/api/update` → `{ available, behind, dashboardUrl }`. Compares `RENDER_GIT_COMMIT` with `main` of `UPDATE_REPO` (default `jaegu504/kirimrasa-web`) via the GitHub compare API, cached 1 hour. `dashboardUrl` opens this service on Render (`RENDER_SERVICE_ID`). Not on Render → `available: false`.
 
 ## Accounts (WhatsApp)
 

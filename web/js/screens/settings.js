@@ -2,7 +2,7 @@
 import { api, errText } from '../api.js';
 import { h, icon, tile, segmented, toggle, pill, sectionHeader, largeTitle, toast, openDialog, replay, fill } from '../dom.js';
 import { t } from '../i18n.js';
-import { S, on, emit, PRESETS, TONES, account, isLinked, delayRange, normalizePhone } from '../store.js';
+import { S, on, emit, PRESETS, TONES, account, isLinked, delayRange, normalizePhone, campaignActive } from '../store.js';
 import { saveSettings, refreshAccounts } from '../actions.js';
 
 const ACC = {
@@ -25,6 +25,7 @@ export function render(container) {
   el = { acc: {} };
   for (const id of Object.keys(ACC)) el.acc[id] = h('div', { class: 'account', id: 'acc-' + id });
   el.safety = h('div', { class: 'card' });
+  el.update = h('div');
 
   const toneChips = h('div', { class: 'chips' }, TONES.map((k) => pill(t().compose.tones[k], k === S.settings.aiTone ? 'purple' : 'fill', () => {
     saveSettings({ aiTone: k });
@@ -47,6 +48,7 @@ export function render(container) {
 
   root.replaceChildren(
     largeTitle(s.title),
+    el.update,
     sectionHeader(s.sectionAccounts),
     h('div', { class: 'card' }, el.acc.personal, h('hr', { class: 'sep inset-62' }), el.acc.business),
     sectionHeader(s.sectionSafety),
@@ -75,6 +77,7 @@ export function render(container) {
   lastStatus = {};
   for (const id of Object.keys(ACC)) buildAccount(id);
   buildSafety();
+  buildUpdate();
 }
 
 export function onShow(opts) {
@@ -86,6 +89,22 @@ export function onShow(opts) {
     setTimeout(() => box.querySelector('input')?.focus({ preventScroll: true }), 300);
   }
 }
+
+// ---------- update banner ----------
+function buildUpdate() {
+  if (!el?.update) return;
+  const s = t().settings;
+  const u = S.update;
+  if (!u?.available) { el.update.replaceChildren(); return; }
+  el.update.replaceChildren(h('div', { class: 'card pad-16 stack-12 fade-in' },
+    h('div', { class: 'row-line' }, tile('download', 'orange'),
+      h('span', { class: 'row-text' }, h('span', { class: 'row-title' }, s.updateTitle), h('span', { class: 'caption' }, s.updateCaption))),
+    h('ol', { class: 'steps' }, s.updateSteps.map((x) => h('li', null, x))),
+    campaignActive(S.campaign) ? h('p', { class: 'alert tone-orange', role: 'note' }, s.updateWait) : null,
+    h('a', { class: 'capsule blue press', href: u.dashboardUrl, target: '_blank', rel: 'noopener' }, icon('globe', 20), h('span', null, s.updateOpen))));
+}
+on('update', buildUpdate);
+on('campaign', buildUpdate);
 
 on('accounts', () => {
   if (!root) return;

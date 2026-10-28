@@ -8,6 +8,7 @@ export const S = {
   contacts: [],
   draft: { bubbles: [''], attachments: [], account: 'personal' },
   campaign: null,
+  update: null, // { available, behind, dashboardUrl }
   tab: 'compose',
   aiTone: 'friendly',
 };

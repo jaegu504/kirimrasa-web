@@ -36,6 +36,10 @@ export async function refreshAccounts() {
   try { S.accounts = await api('/accounts'); emit('accounts'); } catch { /* keep last known */ }
 }
 
+export async function refreshUpdate() {
+  try { S.update = await api('/update'); emit('update'); } catch { /* try again later */ }
+}
+
 export async function refreshCampaign() {
   try {
     const c = await api('/campaign');

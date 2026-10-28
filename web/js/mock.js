@@ -1,7 +1,7 @@
 // In-memory fake of the /app/api contract, loaded only with ?mock=1 (dev aid, never used in production).
 // Options: &n=2000 (contact count), &linked=1 (personal account linked), &auto=1 (skip login),
 // &campaign=1 (start with a running campaign), &aifail=1 (AI answers AI_BUSY), &theme=dark|light, &lang=tr,
-// &tab=contacts|queue|settings (open that tab, handy for headless screenshots). Password: demo
+// &update=1 (a new version is available), &tab=contacts|queue|settings (open that tab, handy for headless screenshots). Password: demo
 import { setTransport, setUploadUrl } from './api.js';
 import { emit } from './store.js';
 
@@ -137,6 +137,7 @@ async function handle(method, fullPath, body, type, onProgress) {
       return ok(structuredClone(settings));
     case 'GET /draft': return ok(structuredClone(draft));
     case 'PUT /draft': draft = structuredClone(body); return ok({ ok: true });
+    case 'GET /update': return ok({ available: q.has('update'), behind: 3, dashboardUrl: 'https://dashboard.render.com/web/srv-demo' });
     case 'GET /accounts': return ok(structuredClone(accounts));
     case 'POST /accounts': {
       const a = accounts.find((x) => x.id === seg[1]);
