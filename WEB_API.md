@@ -134,7 +134,8 @@ Details the contract above left open, decided in `webapp.js` / `lib/*.js`:
 - **Campaign controls** are no-ops (they just return the current state) when they don't apply: pause only while `running`/`cooling`, resume only while `paused`, stop only while active. `retry-failed` on a `done`/`stopped` campaign starts sending again.
 - **Bubble pause**: the 3–6 s wait between two steps of one contact happens even with `typingSim` off (as in the Android app); `typingSim` adds the "typing…" presence and the 3–6 s before the first step.
 - **Stop mid-contact**: a contact with nothing sent yet goes back to `pending`; one with some steps already sent is marked `failed` with `STOPPED`.
-- **Item errors**: `INVALID_PHONE`, `EMPTY_MESSAGE` (text rendered empty and no file), `UPLOAD_MISSING`, `NOT_CONNECTED`, or the WhatsApp error message.
+- **Item errors**: `INVALID_PHONE`, `EMPTY_MESSAGE` (text rendered empty and no file), `UPLOAD_MISSING`, `NOT_CONNECTED`, or the WhatsApp error message, `NOT_ON_WHATSAPP` (the number has no WhatsApp account; its other bubbles are skipped, it does not count as a failure and the next contact starts without the random wait), `FORBIDDEN` / `REPLACED` (WhatsApp refused the account, or it is open on another server).
+- **Auto-pause**: the campaign pauses itself (`state: "paused"`, `pauseReason`) after 5 failed contacts in a row (`FAILURES`), on `FORBIDDEN` or `REPLACED`, and once per WhatsApp "can't start new chats" restriction (`RESTRICTED`, with `restrictedUntil` in ms). `resume` clears `pauseReason`.
 - **Audio attachments** can't carry a caption on WhatsApp, so the bubble text is sent as a text message right before the audio.
 - **Anti-ban settings** are read live each round (like the app), so a change applies to the next delay.
 - **Campaign title** uses the settings language (`26 Okt` / `26 Eki`) and the time zone from `TZ`, else Asia/Jakarta (62) or Europe/Istanbul (90).

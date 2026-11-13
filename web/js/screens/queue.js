@@ -1,7 +1,7 @@
 // "Status" tab — mirrors ui/screens/queue/LiveQueueScreen.kt for the server-side campaign.
 import { api, errText } from '../api.js';
 import { h, icon, pill, largeTitle, sectionHeader, openDialog, rollText, replay, toast } from '../dom.js';
-import { t } from '../i18n.js';
+import { t, lang } from '../i18n.js';
 import { S, on, campaignActive } from '../store.js';
 import { refreshCampaign } from '../actions.js';
 
@@ -99,7 +99,7 @@ function updatePhase() {
   if (camp.state === 'done') [text, ic, tone] = [q.phaseDone, 'check', 'green'];
   else if (camp.state === 'stopped') [text, ic, tone] = [q.phaseStopped, 'stop', 'fill'];
   else if (camp.state === 'idle') [text, ic, tone] = [q.phaseReady, 'clock', 'fill'];
-  else if (camp.state === 'paused') [text, ic, tone] = [q.phasePaused, 'pause', 'orange'];
+  else if (camp.state === 'paused') [text, ic, tone] = [pausedText(camp, q), 'pause', 'orange'];
   else if (camp.state === 'cooling' || camp.phase === 'cooldown') [text, ic, tone] = [q.phaseCooldown(`${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`), 'hourglass', 'orange'];
   else if ((camp.phase === 'typing' || camp.phase === 'sending') && camp.current) [text, ic, tone] = [q.phaseTyping(camp.current), 'pencil', 'blue'];
   else [text, ic, tone] = [q.phaseWaiting(secs), 'timer', 'orange'];
@@ -112,6 +112,18 @@ function updatePhase() {
   } else {
     el.phase.lastChild.textContent = text;
   }
+}
+
+/** Why sending paused itself, or the plain paused text for a manual pause. */
+function pausedText(camp, q) {
+  if (camp.pauseReason === 'FAILURES') return q.pausedFailures(5);
+  if (camp.pauseReason === 'FORBIDDEN') return q.pausedForbidden;
+  if (camp.pauseReason === 'REPLACED') return q.pausedReplaced;
+  if (camp.pauseReason === 'RESTRICTED' && camp.restrictedUntil) {
+    const when = new Date(camp.restrictedUntil).toLocaleString(lang() === 'tr' ? 'tr-TR' : 'id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    return q.pausedRestricted(when);
+  }
+  return q.phasePaused;
 }
 
 function renderControls() {

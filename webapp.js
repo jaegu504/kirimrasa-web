@@ -468,6 +468,7 @@ function mount(app, gw) {
 
     function resume() {
         rt.paused = false;
+        campaign.pauseReason = null;
         campaign.state = campaign.phase === 'cooldown' ? 'cooling' : 'running';
         if (rt.onResume) rt.onResume();
         persist();
@@ -540,6 +541,18 @@ function mount(app, gw) {
             return gw.sendMessage(account, phone, step.text, media);
         };
 
+        // Pause ourselves when the account looks unhealthy, as the app does (idea from OpenWA)
+        const MAX_FAILS_IN_A_ROW = 5;
+        const STOP_CONTACT = ['NOT_ON_WHATSAPP', 'FORBIDDEN', 'REPLACED'];
+        let failStreak = 0;
+        let skipWait = false;
+        let pausedForLock = null;
+        const autoPause = (reason, until) => {
+            r.paused = true;
+            Object.assign(c, { state: 'paused', pauseReason: reason, restrictedUntil: until || null, nextAt: null });
+            persist();
+        };
+
         while (!r.stopped) {
             if (r.paused) { await waitResume(); continue; }
             const item = c.items.find(i => i.status === 'pending');
@@ -550,7 +563,7 @@ function mount(app, gw) {
             }
             const ab = M.normalizeAntiBan(settings.antiBan); // live, like the app reads AntiBanSettings each round
             const processed = c.items.filter(i => i.status === 'sent' || i.status === 'failed').length;
-            if (processed > 0) {
+            if (processed > 0 && !skipWait) {
                 const cooling = processed % ab.batchSize === 0;
                 setPhase(cooling ? 'cooldown' : 'waiting');
                 if (!(await hold(cooling ? ab.pauseMin * 60000 : M.nextContactDelaySec(ab) * 1000))) break;
@@ -596,6 +609,8 @@ function mount(app, gw) {
                     sentAny = true;
                 } catch (err) {
                     error = err.code || err.message || 'SEND_FAILED';
+                    // No WhatsApp account, or the account itself is refused: the other bubbles would fail too
+                    if (STOP_CONTACT.includes(error)) break;
                 }
             }
             if (r.stopped) {
@@ -605,6 +620,19 @@ function mount(app, gw) {
                 break;
             }
             finish(error ? 'failed' : 'sent', error);
+
+            // A number without WhatsApp says nothing about the account, and nothing was sent to it
+            skipWait = error === 'NOT_ON_WHATSAPP';
+            failStreak = !error ? 0 : skipWait ? failStreak : failStreak + 1;
+            const lock = gw.nodeStatus(item.account).restrictedUntil;
+            let reason = null;
+            if (error === 'FORBIDDEN' || error === 'REPLACED') reason = error;
+            else if (lock && lock !== pausedForLock) { pausedForLock = lock; reason = 'RESTRICTED'; }
+            else if (failStreak >= MAX_FAILS_IN_A_ROW) reason = 'FAILURES';
+            if (reason) {
+                failStreak = 0;
+                autoPause(reason, lock);
+            }
         }
     }
 

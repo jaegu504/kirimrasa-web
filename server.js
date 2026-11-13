@@ -216,6 +216,42 @@ const CATCHUP_MS = parseInt(process.env.CATCHUP_MS || '600000', 10);
 // Noise keys of creds WhatsApp logged out (kept until restart)
 const loggedOutCreds = new Set();
 
+// Closes that reconnecting cannot fix: 403 = WhatsApp refused the account (usually banned),
+// 440 = the same account was opened elsewhere and two gateways would keep kicking each other
+const REFUSED_CLOSES = { 403: 'FORBIDDEN', 440: 'REPLACED' };
+const REFUSED_TEXT = {
+    FORBIDDEN: 'WhatsApp menolak akun ini (kemungkinan diblokir). Gateway berhenti mencoba menyambung.',
+    REPLACED: 'Akun ini sedang dipakai di server lain. Hentikan server lain itu, lalu coba lagi.'
+};
+const REPLACED_RETRY_MS = 10 * 60 * 1000;
+
+/** The refusal that keeps this node offline, or null once it may connect again. */
+function nodeProblem(node) {
+    if (!node?.problem) return null;
+    if (node.problem === 'REPLACED' && Date.now() - node.problemAt > REPLACED_RETRY_MS) return null;
+    return node.problem;
+}
+
+/** End of WhatsApp's "can't start new chats" restriction (ms), or null when there is none. */
+function restrictedUntil(node) {
+    return node?.restrictedUntil > Date.now() ? node.restrictedUntil : null;
+}
+
+/** False only when WhatsApp says the number has no account; unknown answers let the send go ahead. */
+async function isOnWhatsApp(node, cleanPhone) {
+    node.waCache = node.waCache || new Map();
+    if (node.waCache.has(cleanPhone)) return node.waCache.get(cleanPhone);
+    try {
+        const found = await node.sock.onWhatsApp(cleanPhone);
+        if (!Array.isArray(found)) return true;
+        const exists = found.some(r => r.exists);
+        node.waCache.set(cleanPhone, exists);
+        return exists;
+    } catch (_) {
+        return true;
+    }
+}
+
 function credsKey(creds) {
     const pub = creds?.noiseKey?.public;
     return pub ? Buffer.from(pub).toString('base64') : null;
@@ -254,6 +290,7 @@ function touchActivity(nodeId) {
 /** Opens the socket from saved creds if needed and waits until WhatsApp accepts it. */
 async function ensureConnected(nodeId) {
     let node = nodeMap.get(nodeId);
+    if (nodeProblem(node)) return null;
     if (node?.sock && node.status === 'CONNECTED') {
         touchActivity(nodeId);
         return node;
@@ -344,6 +381,11 @@ async function getOrCreateSocket(nodeId, phoneNumber = null) {
         const { connection, lastDisconnect } = update;
         // Ignore events from a socket that has already been replaced
         if (node.sock !== sock) return;
+        if (update.reachoutTimeLock) {
+            const lock = update.reachoutTimeLock;
+            node.restrictedUntil = lock.isActive ? (lock.timeEnforcementEnds?.getTime?.() || Date.now() + 60000) : null;
+            logger.warn({ nodeId, lock }, 'Reachout timelock update');
+        }
         if (connection === 'close' && node.idleClosing) {
             node.idleClosing = false;
             node.sock = null;
@@ -358,13 +400,21 @@ async function getOrCreateSocket(nodeId, phoneNumber = null) {
             broadcastStatus(nodeId, 'DISCONNECTED');
             logger.warn({ nodeId, statusCode }, 'Connection closed');
 
-            if (shouldReconnect) {
-                logger.info({ nodeId }, 'Attempting reconnection in 5s...');
+            const refusal = REFUSED_CLOSES[statusCode];
+            if (refusal) {
+                node.problem = refusal;
+                node.problemAt = Date.now();
+                logger.warn({ nodeId, statusCode, refusal }, 'WhatsApp refused the connection; not reconnecting');
+            } else if (shouldReconnect) {
+                // 1 s doubling up to 60 s, plus jitter, so an outage is not hammered every 5 s
+                node.retries = (node.retries || 0) + 1;
+                const wait = Math.min(60000, 1000 * 2 ** (node.retries - 1)) + Math.floor(Math.random() * 1000);
+                logger.info({ nodeId, attempt: node.retries, wait }, 'Attempting reconnection');
                 setTimeout(() => {
                     if (nodeMap.get(nodeId) === node && node.sock === sock) {
                         getOrCreateSocket(nodeId, node.phoneNumber).catch(() => {});
                     }
-                }, 5000);
+                }, wait);
             } else {
                 logger.warn({ nodeId }, 'Logged out from device, deleting session credentials');
                 const deadKey = credsKey(node.state?.creds);
@@ -375,6 +425,10 @@ async function getOrCreateSocket(nodeId, phoneNumber = null) {
             }
         } else if (connection === 'open') {
             node.status = 'CONNECTED';
+            node.retries = 0;
+            node.problem = null;
+            // WhatsApp only pushes a restriction when it changes, so ask once per connection
+            sock.fetchAccountReachoutTimelock?.().catch(() => {});
             broadcastStatus(nodeId, 'CONNECTED');
             touchActivity(nodeId);
             logger.info({ nodeId }, 'WhatsApp connection established successfully!');
@@ -475,7 +529,9 @@ function nodeStatus(nodeId) {
         nodeId,
         status,
         phoneNumber: node?.phoneNumber || '',
-        registered: (sleeping || node?.sock?.user || node?.sock?.authState?.creds?.registered) ? true : false
+        registered: (sleeping || node?.sock?.user || node?.sock?.authState?.creds?.registered) ? true : false,
+        problem: nodeProblem(node),
+        restrictedUntil: restrictedUntil(node)
     };
 }
 
@@ -558,6 +614,9 @@ app.post('/api/nodes/:nodeId/session', authMiddleware, async (req, res) => {
 
 /** Sends text, or media ({ buffer, mimeType, fileName }) with the text as caption, to clean digits. */
 async function sendOnNode(node, cleanPhone, message, media) {
+    if (!(await isOnWhatsApp(node, cleanPhone))) {
+        throw Object.assign(new Error('NOT_ON_WHATSAPP'), { code: 'NOT_ON_WHATSAPP' });
+    }
     const jid = `${cleanPhone}@s.whatsapp.net`;
     let sentMessage;
     if (media) {
@@ -615,6 +674,8 @@ async function sendOnNode(node, cleanPhone, message, media) {
 async function sendMessage(nodeId, cleanPhone, text, media) {
     const node = await ensureConnected(nodeId).catch(() => null);
     if (!node || !node.sock || node.status !== 'CONNECTED') {
+        const problem = nodeProblem(nodeMap.get(nodeId));
+        if (problem) throw Object.assign(new Error(REFUSED_TEXT[problem]), { code: problem });
         throw Object.assign(new Error('NOT_CONNECTED'), { code: 'NOT_CONNECTED' });
     }
     return sendOnNode(node, cleanPhone, text, media);
@@ -631,6 +692,10 @@ app.post('/api/nodes/:nodeId/send', authMiddleware, async (req, res) => {
 
     const node = await ensureConnected(nodeId).catch(() => null);
     if (!node || !node.sock || node.status !== 'CONNECTED') {
+        const problem = nodeProblem(nodeMap.get(nodeId));
+        if (problem) {
+            return res.status(409).json({ error: REFUSED_TEXT[problem], code: problem });
+        }
         return res.status(400).json({
             error: `Node ${nodeId} belum terhubung ke WhatsApp. Silakan hubungkan dulu.`,
             code: 'NOT_CONNECTED'
@@ -704,9 +769,13 @@ app.post('/api/nodes/:nodeId/send', authMiddleware, async (req, res) => {
         return res.json({
             success: true,
             messageId: sentMessage?.key?.id || `msg-${Date.now()}`,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            restrictedUntil: restrictedUntil(node)
         });
     } catch (err) {
+        if (err.code === 'NOT_ON_WHATSAPP') {
+            return res.status(422).json({ error: 'Nomor ini tidak terdaftar di WhatsApp', code: 'NOT_ON_WHATSAPP' });
+        }
         logger.error({ err: err.message, recipient }, 'Gagal mengirim pesan');
         return res.status(500).json({
             error: 'Gagal mengirim pesan: ' + (err.message || err)
